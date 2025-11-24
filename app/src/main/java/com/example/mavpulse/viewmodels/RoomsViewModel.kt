@@ -44,14 +44,15 @@ class RoomsViewModel(application: Application) : AndroidViewModel(application) {
     fun createRoom(course_id: String, creator_id: String, room_name: String, username: String) {
         viewModelScope.launch {
             try {
-                // 1. Get or create user's keypair
-                val userKeyPair = cryptoManager.getOrCreateAsymmetricKeyPair(creator_id)
 
-                // 2. Generate a new symmetric key for the room
-                val roomKey = cryptoManager.generateSymmetricKey()
+                val userKeyPair = cryptoManager.getOrCreateAsymmetricKeyPair("user_$creator_id")
+                val publicKey = userKeyPair.public
 
-                // 3. Encrypt the room key with the user's public key
-                val encryptedRoomKey = cryptoManager.encryptWithPublicKey(roomKey.encoded, userKeyPair.public)
+                // generate symmetric key for room
+                val roomAESKey = cryptoManager.generateSymmetricKey() // SecretKey
+
+                // encrypt the room key with user's public key
+                val encryptedRoomKey = cryptoManager.encryptWithPublicKey(roomAESKey.encoded, publicKey)
                 val encryptedRoomKeyString = Base64.encodeToString(encryptedRoomKey, Base64.DEFAULT)
 
                 val request = CreateRoomRequest(
@@ -64,10 +65,10 @@ class RoomsViewModel(application: Application) : AndroidViewModel(application) {
                 val response = apiService.createRoom(request)
 
                 val newRoom = RoomChoice(
-                    members = response.size,
+                    members = response.room.size,
                     owner = username, // Use the provided username
-                    id = response.id,
-                    name = response.roomName
+                    id = response.room.id,
+                    name = response.room.roomName
                 )
 
                 val currentState = _roomsState.value
