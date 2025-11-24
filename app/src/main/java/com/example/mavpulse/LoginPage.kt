@@ -1,6 +1,6 @@
 package com.example.mavpulse
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,8 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -25,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mavpulse.viewmodels.AuthViewModel
@@ -35,11 +41,15 @@ fun LoginPage(
     modifier: Modifier = Modifier,
     onRegisterClick: () -> Unit,
     onLoginSuccess: () -> Unit,
+    onBackClick: () -> Unit, // Added for back gesture
     authViewModel: AuthViewModel = viewModel()
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     val authState by authViewModel.authState.collectAsState()
+
+    BackHandler(onBack = onBackClick)
 
     LaunchedEffect(authState) {
         if (authState is AuthState.Success) {
@@ -78,7 +88,8 @@ fun LoginPage(
                     value = email,
                     onValueChange = { if (it.length <= 30) email = it },
                     label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
@@ -86,7 +97,17 @@ fun LoginPage(
                     onValueChange = { if (it.length <= 30) password = it },
                     label = { Text("Password") },
                     modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation()
+                    singleLine = true,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        val image = if (passwordVisible)
+                            Icons.Filled.Visibility
+                        else Icons.Filled.VisibilityOff
+
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(imageVector = image, contentDescription = if (passwordVisible) "Hide password" else "Show password")
+                        }
+                    }
                 )
                 Spacer(Modifier.height(16.dp))
 
@@ -97,7 +118,7 @@ fun LoginPage(
                 ) {
                     Button(
                         modifier = Modifier.weight(1f),
-                        onClick = { authViewModel.login(email, password) },
+                        onClick = { authViewModel.login(email.trim(), password.trim()) },
                         shape = RectangleShape
                     ) {
                         Text("Login")

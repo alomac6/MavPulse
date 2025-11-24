@@ -16,18 +16,30 @@ class SessionManager(context: Context) {
     )
 
     fun saveAuthToken(token: String) {
-        val editor = sharedPreferences.edit()
-        editor.putString("auth_token", token)
-        editor.apply()
+        sharedPreferences.edit().putString("auth_token", token).apply()
     }
 
     fun getAuthToken(): String? {
         return sharedPreferences.getString("auth_token", null)
     }
 
-    fun clearAuthToken() {
-        val editor = sharedPreferences.edit()
-        editor.remove("auth_token")
-        editor.apply()
+    fun saveUsername(username: String) {
+        sharedPreferences.edit().putString("username", username).apply()
+    }
+
+    fun getUsername(): String? {
+        return sharedPreferences.getString("username", null)
+    }
+
+    fun saveUserId(userId: String) {
+        sharedPreferences.edit().putString("user_id", userId).apply()
+    }
+
+    fun getUserId(): String? {
+        return sharedPreferences.getString("user_id", null)
+    }
+
+    fun clearSession() {
+        sharedPreferences.edit().clear().apply()
     }
 }

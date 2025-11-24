@@ -40,6 +40,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mavpulse.ui.theme.MavPulseTheme
 import com.example.mavpulse.viewmodels.AuthViewModel
+import com.example.mavpulse.viewmodels.DepartmentViewModel
+import com.example.mavpulse.viewmodels.CourseViewModel
+import com.example.mavpulse.viewmodels.NotesViewModel
+import com.example.mavpulse.viewmodels.RoomsViewModel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -61,14 +65,34 @@ sealed class Page(val title: String) {
     object Register : Page("Register")
     object Departments : Page("Departments")
     object Courses : Page("Courses")
+    object NotesRoomsChoice : Page("NotesRoomsChoice")
+    object FavoriteNotes : Page("FavoriteNotes")
+    object Notes : Page("Notes")
+    object NoteViewer : Page("NoteViewer")
+    object Rooms : Page("Rooms") // New page
 }
 
 @PreviewScreenSizes
 @Composable
-fun MavPulseApp(authViewModel: AuthViewModel = viewModel()) {
+fun MavPulseApp(
+    authViewModel: AuthViewModel = viewModel(),
+    departmentViewModel: DepartmentViewModel = viewModel(),
+    courseViewModel: CourseViewModel = viewModel(),
+    notesViewModel: NotesViewModel = viewModel(),
+    roomsViewModel: RoomsViewModel = viewModel()
+) {
     var currentPageTitle by rememberSaveable { mutableStateOf(Page.Home.title) }
     var currentDepartmentName by rememberSaveable { mutableStateOf<String?>(null) }
+    var currentCourseName by rememberSaveable { mutableStateOf<String?>(null) }
+    var currentCourseNumber by rememberSaveable { mutableStateOf<String?>(null) }
+    var current_course_name by rememberSaveable { mutableStateOf<String?>(null) }
+    var current_course_id by rememberSaveable { mutableStateOf<String?>(null) }
 
+    var selectedNotePath by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedNoteTitle by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val loggedInUsername by authViewModel.loggedInUsername
+    val userId by authViewModel.userId
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -78,6 +102,7 @@ fun MavPulseApp(authViewModel: AuthViewModel = viewModel()) {
             ModalDrawerSheet(modifier = Modifier.fillMaxSize()) {
                 MavPulseDrawer(
                     drawerState = drawerState,
+                    isUserLoggedIn = loggedInUsername != null,
                     onEventsClick = {
                         currentPageTitle = Page.Events.title
                         scope.launch { drawerState.close() }
@@ -86,8 +111,17 @@ fun MavPulseApp(authViewModel: AuthViewModel = viewModel()) {
                         currentPageTitle = Page.Login.title
                         scope.launch { drawerState.close() }
                     },
+                    onFavoriteNotesClick = {
+                        currentPageTitle = Page.FavoriteNotes.title
+                        scope.launch { drawerState.close() }
+                    },
                     onCoursesClick = {
                         currentPageTitle = Page.Departments.title
+                        scope.launch { drawerState.close() }
+                    },
+                    onLogoutClick = {
+                        authViewModel.logout()
+                        currentPageTitle = Page.Home.title // Navigate to home after logout
                         scope.launch { drawerState.close() }
                     }
                 )
@@ -97,20 +131,27 @@ fun MavPulseApp(authViewModel: AuthViewModel = viewModel()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                AppTopBar(
-                    onMenuClick = { scope.launch { drawerState.open() } },
-                    onHomeClick = { currentPageTitle = Page.Home.title },
-                    onProfileClick = { currentPageTitle = Page.Login.title }
-                )
+                if (currentPageTitle != Page.NoteViewer.title) {
+                    AppTopBar(
+                        username = loggedInUsername,
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onHomeClick = { currentPageTitle = Page.Home.title },
+                        onProfileClick = { currentPageTitle = Page.Login.title }
+                    )
+                }
             }
         ) { innerPadding ->
             when (currentPageTitle) {
                 Page.Home.title -> MainPageContent(modifier = Modifier.padding(innerPadding))
-                Page.Events.title -> EventsPage(modifier = Modifier.padding(innerPadding))
+                Page.Events.title -> EventsPage(
+                    modifier = Modifier.padding(innerPadding),
+                    onBackClick = { currentPageTitle = Page.Home.title }
+                )
                 Page.Login.title -> LoginPage(
                     modifier = Modifier.padding(innerPadding),
                     onRegisterClick = { currentPageTitle = Page.Register.title },
                     onLoginSuccess = { currentPageTitle = Page.Home.title },
+                    onBackClick = { currentPageTitle = Page.Home.title },
                     authViewModel = authViewModel
                 )
                 Page.Register.title -> RegisterPage(
@@ -122,13 +163,65 @@ fun MavPulseApp(authViewModel: AuthViewModel = viewModel()) {
                 Page.Departments.title -> DepartmentsPage(
                     modifier = Modifier.padding(innerPadding),
                     onDepartmentClick = { departmentName ->
-                        currentDepartmentName = departmentName
+                        currentDepartmentName = departmentName.trim()
                         currentPageTitle = Page.Courses.title
-                    }
+                    },
+                    onBackClick = { currentPageTitle = Page.Home.title },
+                    departmentViewModel = departmentViewModel
                 )
                 Page.Courses.title -> CoursesPage(
                     modifier = Modifier.padding(innerPadding),
-                    departmentName = currentDepartmentName ?: ""
+                    departmentName = currentDepartmentName ?: "",
+                    onCourseClick = { course ->
+                        currentCourseName = course.name
+                        currentCourseNumber = course.number
+                        current_course_name = course.backendName
+                        current_course_id = course.course_id
+                        currentPageTitle = Page.NotesRoomsChoice.title
+                    },
+                    onBackClick = { currentPageTitle = Page.Departments.title },
+                    courseViewModel = courseViewModel
+                )
+                Page.NotesRoomsChoice.title -> NotesRoomsChoicePage(
+                    modifier = Modifier.padding(innerPadding),
+                    onNotesClick = { currentPageTitle = Page.Notes.title },
+                    onRoomsClick = { currentPageTitle = Page.Rooms.title },
+                    onBackClick = { currentPageTitle = Page.Courses.title }
+                )
+                Page.FavoriteNotes.title -> {
+                    // TODO: Implement Favorite Notes Page
+                    Column(modifier = Modifier.padding(innerPadding)) {
+                        Text("Favorite Notes Page")
+                    }
+                }
+                Page.Notes.title -> NotesPage(
+                    modifier = Modifier.padding(innerPadding),
+                    course_name = current_course_name ?: "",
+                    userId = userId ?: "",
+                    onBackClick = { currentPageTitle = Page.NotesRoomsChoice.title },
+                    onNoteClick = { note ->
+                        selectedNotePath = note.filePath
+                        selectedNoteTitle = note.title
+                        currentPageTitle = Page.NoteViewer.title
+                    },
+                    notesViewModel = notesViewModel
+                )
+                Page.NoteViewer.title -> NoteViewerPage(
+                    modifier = Modifier.padding(innerPadding),
+                    fileUrl = selectedNotePath ?: "",
+                    title = selectedNoteTitle ?: "",
+                    onClose = { currentPageTitle = Page.Notes.title },
+                    notesViewModel = notesViewModel
+                )
+                Page.Rooms.title -> RoomsPage(
+                    modifier = Modifier.padding(innerPadding),
+                    course_name = current_course_name ?: "",
+                    course_id = current_course_id ?: "",
+                    creator_id = userId ?: "",
+                    username = loggedInUsername ?: "", // Pass username
+                    onRoomClick = { /* TODO */ },
+                    onBackClick = { currentPageTitle = Page.NotesRoomsChoice.title },
+                    roomsViewModel = roomsViewModel
                 )
             }
         }

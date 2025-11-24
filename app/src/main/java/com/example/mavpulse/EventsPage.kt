@@ -1,5 +1,6 @@
 package com.example.mavpulse
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -58,9 +59,11 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 @Composable
-fun EventsPage(modifier: Modifier = Modifier) {
+fun EventsPage(modifier: Modifier = Modifier, onBackClick: () -> Unit) {
     var selectedEventIndex by remember { mutableStateOf<Int?>(null) }
     var showAddEventForm by remember { mutableStateOf(false) }
+
+    BackHandler(onBack = onBackClick)
 
     Box(modifier = modifier.fillMaxSize()) {
         val events = (1..4).toList()

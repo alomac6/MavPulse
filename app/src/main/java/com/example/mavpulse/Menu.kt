@@ -1,10 +1,10 @@
 package com.example.mavpulse
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -33,7 +33,13 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppTopBar(onMenuClick: () -> Unit, onHomeClick: () -> Unit, onProfileClick: () -> Unit, modifier: Modifier = Modifier) {
+fun AppTopBar(
+    username: String?,
+    onMenuClick: () -> Unit, 
+    onHomeClick: () -> Unit, 
+    onProfileClick: () -> Unit, 
+    modifier: Modifier = Modifier
+) {
     TopAppBar(
         title = {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -66,23 +72,36 @@ fun AppTopBar(onMenuClick: () -> Unit, onHomeClick: () -> Unit, onProfileClick: 
         },
         actions = {
             IconButton(onClick = onProfileClick) {
-                Icon(
-                    imageVector = Icons.Default.AccountBox,
-                    contentDescription = "User Profile",
-                    modifier = Modifier.size(48.dp)
-                )
+                if (username != null) {
+                    Box(
+                        contentAlignment = Alignment.Center, 
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.Black) // Set background to black when logged in
+                    ) {
+                        Text(text = username.first().uppercase(), fontSize = 24.sp, color = Color.White)
+                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AccountBox,
+                        contentDescription = "User Profile",
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
             }
         }
     )
 }
 
-
 @Composable
 fun MavPulseDrawer(
-    drawerState: DrawerState, 
-    onEventsClick: () -> Unit, 
+    drawerState: DrawerState,
+    isUserLoggedIn: Boolean,
+    onEventsClick: () -> Unit,
     onLoginClick: () -> Unit,
-    onCoursesClick: () -> Unit
+    onFavoriteNotesClick: () -> Unit,
+    onCoursesClick: () -> Unit,
+    onLogoutClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
 
@@ -109,9 +128,16 @@ fun MavPulseDrawer(
             .clickable { onEventsClick() })
         Text("Calendar", fontSize = 22.sp, modifier = Modifier.padding(vertical = 52.dp))
         Text("Class Notes", fontSize = 22.sp, modifier = Modifier.padding(vertical = 52.dp).clickable { onCoursesClick() })
-        Text("Favorite Notes", fontSize = 22.sp, modifier = Modifier.padding(vertical = 52.dp))
-        Text("Login", fontSize = 22.sp, modifier = Modifier
-            .padding(vertical = 52.dp)
-            .clickable { onLoginClick() })
+
+        if (isUserLoggedIn) {
+            Text("Favorite Notes", fontSize = 22.sp, modifier = Modifier.padding(vertical = 52.dp).clickable { onFavoriteNotesClick() })
+            Text("Logout", fontSize = 22.sp, modifier = Modifier
+                .padding(vertical = 52.dp)
+                .clickable { onLogoutClick() })
+        } else {
+            Text("Login", fontSize = 22.sp, modifier = Modifier
+                .padding(vertical = 52.dp)
+                .clickable { onLoginClick() })
+        }
     }
 }

@@ -1,8 +1,12 @@
 package com.example.mavpulse
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,14 +17,17 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,56 +36,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.mavpulse.viewmodels.CourseState
+import com.example.mavpulse.viewmodels.CourseViewModel
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
-data class Course(val number: String, val name: String)
-
-// Placeholder function to simulate fetching courses for a department
-fun getCoursesForDepartment(departmentName: String): List<Course> {
-    // In a real app, you would make a network request here based on the departmentName
-    return getSampleCourses().filter { it.number.startsWith(departmentName) }
-}
-
-fun getSampleCourses(): List<Course> {
-    return listOf(
-        Course("CSE 1310", "Introduction to Programming"),
-        Course("CSE 1320", "Intermediate Programming"),
-        Course("CSE 2312", "Computer Organization and Assembly"),
-        Course("CSE 3310", "Software Engineering"),
-        Course("CSE 3311", "Object-Oriented Software Engineering"),
-        Course("CSE 3320", "Operating Systems"),
-        Course("CSE 4308", "Artificial Intelligence"),
-        Course("MATH 1426", "Calculus I"),
-        Course("MATH 2425", "Calculus II"),
-        Course("PHYS 1443", "General Technical Physics I"),
-        Course("PHYS 1444", "General Technical Physics II"),
-        Course("IE 3301", "Engineering Probability and Statistics"),
-        Course("EE 2340", "Electrical Circuits I"),
-        Course("ENGL 1301", "Rhetoric and Composition I"),
-        Course("HIST 1311", "History of the United States to 1865"),
-        Course("ART 1301", "Art History I")
-    )
-}
+@Serializable
+data class Course(
+    @SerialName("course_id") val course_id: String,
+    @SerialName("course_code") val number: String,
+    @SerialName("course_name") val name: String,
+    @SerialName("course_name_backend") val backendName: String
+)
 
 @Composable
-fun CoursesPage(modifier: Modifier = Modifier, departmentName: String) {
+fun CoursesPage(
+    modifier: Modifier = Modifier, 
+    departmentName: String, 
+    onCourseClick: (Course) -> Unit,
+    onBackClick: () -> Unit,
+    courseViewModel: CourseViewModel = viewModel()
+) {
     var searchQuery by remember { mutableStateOf("") }
-    var courses by remember { mutableStateOf<List<Course>>(emptyList()) }
+    val courseState by courseViewModel.courseState.collectAsState()
 
-    // Fetch courses when the departmentName changes
+    BackHandler(onBack = onBackClick)
+
     LaunchedEffect(departmentName) {
-        // Simulate a network call to get courses for the selected department
-        courses = getCoursesForDepartment(departmentName)
+        courseViewModel.fetchCourses(departmentName.trim())
     }
 
-    val filteredCourses = if (searchQuery.isBlank()) {
-        courses
-    } else {
-        courses.filter { 
-            it.name.contains(searchQuery, ignoreCase = true) || 
-            it.number.contains(searchQuery, ignoreCase = true) 
-        }
-    }
-    
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -91,37 +79,83 @@ fun CoursesPage(modifier: Modifier = Modifier, departmentName: String) {
             color = MaterialTheme.colorScheme.primary
         )
         Spacer(Modifier.height(16.dp))
-        
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
+
+        Row(
             modifier = Modifier.fillMaxWidth(0.95f),
-            placeholder = { Text("Search in $departmentName") },
-            trailingIcon = {
-                Icon(Icons.Default.Search, contentDescription = "Search")
-            },
-            singleLine = true
-        )
-        Spacer(Modifier.height(16.dp))
-        
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(1),
-            modifier = Modifier.fillMaxWidth(0.95f),
-            contentPadding = PaddingValues(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            items(filteredCourses) { course ->
-                CourseItem(course = course)
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Search...") },
+                trailingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = "Search")
+                },
+                singleLine = true
+            )
+        }
+
+        when (val state = courseState) {
+            is CourseState.Loading -> {
+                Spacer(Modifier.height(16.dp))
+                CircularProgressIndicator()
+            }
+            is CourseState.Success -> {
+                val filteredCourses = if (searchQuery.isBlank()) {
+                    state.courses
+                } else {
+                    state.courses.filter { 
+                        it.name.contains(searchQuery, ignoreCase = true) || 
+                        it.number.contains(searchQuery, ignoreCase = true) 
+                    }
+                }
+
+                 if (filteredCourses.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No courses found for this department.")
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(1),
+                        modifier = Modifier.fillMaxWidth(0.95f).weight(1f),
+                        contentPadding = PaddingValues(vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(filteredCourses) { course ->
+                            CourseItem(course = course, onClick = { onCourseClick(course) })
+                        }
+                    }
+                }
+            }
+            is CourseState.Error -> {
+                Spacer(Modifier.height(8.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = state.message,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.fillMaxWidth(0.95f)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { courseViewModel.fetchCourses(departmentName.trim()) }) {
+                        Text("Retry")
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun CourseItem(course: Course) {
+fun CourseItem(course: Course, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().height(100.dp), // Set a fixed height
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(100.dp)
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
