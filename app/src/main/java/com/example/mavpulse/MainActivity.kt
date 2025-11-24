@@ -3,8 +3,12 @@ package com.example.mavpulse
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,15 +16,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
@@ -34,15 +44,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mavpulse.ui.theme.MavPulseTheme
 import com.example.mavpulse.viewmodels.AuthViewModel
-import com.example.mavpulse.viewmodels.DepartmentViewModel
 import com.example.mavpulse.viewmodels.CourseViewModel
+import com.example.mavpulse.viewmodels.DepartmentViewModel
 import com.example.mavpulse.viewmodels.NotesViewModel
+import com.example.mavpulse.viewmodels.ProfileViewModel
 import com.example.mavpulse.viewmodels.RoomsViewModel
 import kotlinx.coroutines.launch
 
@@ -69,7 +82,8 @@ sealed class Page(val title: String) {
     object FavoriteNotes : Page("FavoriteNotes")
     object Notes : Page("Notes")
     object NoteViewer : Page("NoteViewer")
-    object Rooms : Page("Rooms") // New page
+    object Rooms : Page("Rooms")
+    object Profile : Page("Profile")
 }
 
 @PreviewScreenSizes
@@ -79,7 +93,8 @@ fun MavPulseApp(
     departmentViewModel: DepartmentViewModel = viewModel(),
     courseViewModel: CourseViewModel = viewModel(),
     notesViewModel: NotesViewModel = viewModel(),
-    roomsViewModel: RoomsViewModel = viewModel()
+    roomsViewModel: RoomsViewModel = viewModel(),
+    profileViewModel: ProfileViewModel = viewModel()
 ) {
     var currentPageTitle by rememberSaveable { mutableStateOf(Page.Home.title) }
     var currentDepartmentName by rememberSaveable { mutableStateOf<String?>(null) }
@@ -136,97 +151,171 @@ fun MavPulseApp(
                         username = loggedInUsername,
                         onMenuClick = { scope.launch { drawerState.open() } },
                         onHomeClick = { currentPageTitle = Page.Home.title },
-                        onProfileClick = { currentPageTitle = Page.Login.title }
+                        onProfileClick = { 
+                            if (loggedInUsername != null) {
+                                currentPageTitle = Page.Profile.title
+                            } else {
+                                currentPageTitle = Page.Login.title
+                            }
+                        }
                     )
                 }
             }
         ) { innerPadding ->
-            when (currentPageTitle) {
-                Page.Home.title -> MainPageContent(modifier = Modifier.padding(innerPadding))
-                Page.Events.title -> EventsPage(
-                    modifier = Modifier.padding(innerPadding),
-                    onBackClick = { currentPageTitle = Page.Home.title }
-                )
-                Page.Login.title -> LoginPage(
-                    modifier = Modifier.padding(innerPadding),
-                    onRegisterClick = { currentPageTitle = Page.Register.title },
-                    onLoginSuccess = { currentPageTitle = Page.Home.title },
-                    onBackClick = { currentPageTitle = Page.Home.title },
-                    authViewModel = authViewModel
-                )
-                Page.Register.title -> RegisterPage(
-                    modifier = Modifier.padding(innerPadding),
-                    onRegisterSuccess = { currentPageTitle = Page.Login.title },
-                    onBackToLogin = { currentPageTitle = Page.Login.title },
-                    authViewModel = authViewModel
-                )
-                Page.Departments.title -> DepartmentsPage(
-                    modifier = Modifier.padding(innerPadding),
-                    onDepartmentClick = { departmentName ->
-                        currentDepartmentName = departmentName.trim()
-                        currentPageTitle = Page.Courses.title
-                    },
-                    onBackClick = { currentPageTitle = Page.Home.title },
-                    departmentViewModel = departmentViewModel
-                )
-                Page.Courses.title -> CoursesPage(
-                    modifier = Modifier.padding(innerPadding),
-                    departmentName = currentDepartmentName ?: "",
-                    onCourseClick = { course ->
-                        currentCourseName = course.name
-                        currentCourseNumber = course.number
-                        current_course_name = course.backendName
-                        current_course_id = course.course_id
-                        currentPageTitle = Page.NotesRoomsChoice.title
-                    },
-                    onBackClick = { currentPageTitle = Page.Departments.title },
-                    courseViewModel = courseViewModel
-                )
-                Page.NotesRoomsChoice.title -> NotesRoomsChoicePage(
-                    modifier = Modifier.padding(innerPadding),
-                    onNotesClick = { currentPageTitle = Page.Notes.title },
-                    onRoomsClick = { currentPageTitle = Page.Rooms.title },
-                    onBackClick = { currentPageTitle = Page.Courses.title }
-                )
-                Page.FavoriteNotes.title -> {
-                    // TODO: Implement Favorite Notes Page
-                    Column(modifier = Modifier.padding(innerPadding)) {
-                        Text("Favorite Notes Page")
+            Box(modifier = Modifier.padding(innerPadding)) {
+                when (currentPageTitle) {
+                    Page.Home.title -> MainPageContent(modifier = Modifier.fillMaxSize())
+                    Page.Events.title -> EventsPage(
+                        modifier = Modifier.fillMaxSize(),
+                        onBackClick = { currentPageTitle = Page.Home.title }
+                    )
+                    Page.Login.title -> LoginPage(
+                        modifier = Modifier.fillMaxSize(),
+                        onRegisterClick = { currentPageTitle = Page.Register.title },
+                        onLoginSuccess = { currentPageTitle = Page.Home.title },
+                        onBackClick = { currentPageTitle = Page.Home.title },
+                        authViewModel = authViewModel
+                    )
+                    Page.Register.title -> RegisterPage(
+                        modifier = Modifier.fillMaxSize(),
+                        onRegisterSuccess = { currentPageTitle = Page.Login.title },
+                        onBackToLogin = { currentPageTitle = Page.Login.title },
+                        authViewModel = authViewModel
+                    )
+                    Page.Departments.title -> DepartmentsPage(
+                        modifier = Modifier.fillMaxSize(),
+                        onDepartmentClick = { departmentName ->
+                            currentDepartmentName = departmentName.trim()
+                            currentPageTitle = Page.Courses.title
+                        },
+                        onBackClick = { currentPageTitle = Page.Home.title },
+                        departmentViewModel = departmentViewModel
+                    )
+                    Page.Courses.title -> CoursesPage(
+                        modifier = Modifier.fillMaxSize(),
+                        departmentName = currentDepartmentName ?: "",
+                        onCourseClick = { course ->
+                            currentCourseName = course.name
+                            currentCourseNumber = course.number
+                            current_course_name = course.backendName
+                            current_course_id = course.course_id
+                            currentPageTitle = Page.NotesRoomsChoice.title
+                        },
+                        onBackClick = { currentPageTitle = Page.Departments.title },
+                        courseViewModel = courseViewModel
+                    )
+                    Page.NotesRoomsChoice.title -> NotesRoomsChoicePage(
+                        modifier = Modifier.fillMaxSize(),
+                        onNotesClick = { currentPageTitle = Page.Notes.title },
+                        onRoomsClick = { currentPageTitle = Page.Rooms.title },
+                        onBackClick = { currentPageTitle = Page.Courses.title }
+                    )
+                    Page.FavoriteNotes.title -> {
+                        // TODO: Implement Favorite Notes Page
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Text("Favorite Notes Page")
+                        }
                     }
+                    Page.Notes.title -> NotesPage(
+                        modifier = Modifier.fillMaxSize(),
+                        course_name = current_course_name ?: "",
+                        userId = userId ?: "",
+                        onBackClick = { currentPageTitle = Page.NotesRoomsChoice.title },
+                        onNoteClick = { note ->
+                            selectedNotePath = note.filePath
+                            selectedNoteTitle = note.title
+                            currentPageTitle = Page.NoteViewer.title
+                        },
+                        notesViewModel = notesViewModel
+                    )
+                    Page.NoteViewer.title -> NoteViewerPage(
+                        modifier = Modifier.fillMaxSize(),
+                        fileUrl = selectedNotePath ?: "",
+                        title = selectedNoteTitle ?: "",
+                        onClose = { currentPageTitle = Page.Notes.title },
+                        notesViewModel = notesViewModel
+                    )
+                    Page.Rooms.title -> RoomsPage(
+                        modifier = Modifier.fillMaxSize(),
+                        course_name = current_course_name ?: "",
+                        course_id = current_course_id ?: "",
+                        creator_id = userId ?: "",
+                        username = loggedInUsername ?: "",
+                        onRoomClick = { /* TODO */ },
+                        onBackClick = { currentPageTitle = Page.NotesRoomsChoice.title },
+                        roomsViewModel = roomsViewModel
+                    )
+                    Page.Profile.title -> ProfilePage(
+                        modifier = Modifier.fillMaxSize(),
+                        userId = userId ?: "",
+                        username = loggedInUsername ?: "",
+                        onNoteClick = { note ->
+                            when(note) {
+                                is FavoriteNoteDetail -> {
+                                    selectedNotePath = note.filePath
+                                    selectedNoteTitle = note.title
+                                    currentPageTitle = Page.NoteViewer.title
+                                }
+                                is UserNote -> {
+                                    selectedNotePath = note.filePath
+                                    selectedNoteTitle = note.title
+                                    currentPageTitle = Page.NoteViewer.title
+                                }
+                            }
+                        },
+                        profileViewModel = profileViewModel
+                    )
                 }
-                Page.Notes.title -> NotesPage(
-                    modifier = Modifier.padding(innerPadding),
-                    course_name = current_course_name ?: "",
-                    userId = userId ?: "",
-                    onBackClick = { currentPageTitle = Page.NotesRoomsChoice.title },
-                    onNoteClick = { note ->
-                        selectedNotePath = note.filePath
-                        selectedNoteTitle = note.title
-                        currentPageTitle = Page.NoteViewer.title
-                    },
-                    notesViewModel = notesViewModel
-                )
-                Page.NoteViewer.title -> NoteViewerPage(
-                    modifier = Modifier.padding(innerPadding),
-                    fileUrl = selectedNotePath ?: "",
-                    title = selectedNoteTitle ?: "",
-                    onClose = { currentPageTitle = Page.Notes.title },
-                    notesViewModel = notesViewModel
-                )
-                Page.Rooms.title -> RoomsPage(
-                    modifier = Modifier.padding(innerPadding),
-                    course_name = current_course_name ?: "",
-                    course_id = current_course_id ?: "",
-                    creator_id = userId ?: "",
-                    username = loggedInUsername ?: "", // Pass username
-                    onRoomClick = { /* TODO */ },
-                    onBackClick = { currentPageTitle = Page.NotesRoomsChoice.title },
-                    roomsViewModel = roomsViewModel
-                )
             }
         }
     }
 }
+
+@Composable
+fun AppTopBar(
+    username: String?,
+    onMenuClick: () -> Unit,
+    onHomeClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 24.dp, start = 8.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        IconButton(onClick = onMenuClick) {
+            Icon(Icons.Default.Menu, contentDescription = "Menu", modifier = Modifier.size(36.dp))
+        }
+
+        IconButton(onClick = onHomeClick) {
+            Icon(Icons.Default.Home, contentDescription = "Home", modifier = Modifier.size(36.dp))
+        }
+
+        IconButton(onClick = onProfileClick) {
+            if (username != null) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF0064B1)) // Royal Blue
+                        .border(BorderStroke(2.dp, Color(0xFFF58025)), shape = CircleShape), // Orange
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = username.first().uppercase(),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            } else {
+                Icon(Icons.Default.AccountCircle, contentDescription = "Profile", modifier = Modifier.size(36.dp))
+            }
+        }
+    }
+}
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

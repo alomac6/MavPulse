@@ -1,6 +1,9 @@
 package com.example.mavpulse
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +42,15 @@ fun NoteViewerPage(
                   fileUrl.endsWith(".jpg", ignoreCase = true) ||
                   fileUrl.endsWith(".jpeg", ignoreCase = true)
 
+    val saveFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("*/*"),
+        onResult = { uri: Uri? ->
+            uri?.let { 
+                notesViewModel.saveFile(it, fileUrl)
+            }
+        }
+    )
+
     BackHandler(onBack = onClose)
 
     Scaffold(
@@ -54,7 +66,11 @@ fun NoteViewerPage(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Card(
-                    onClick = { notesViewModel.downloadNote(fileUrl, title) },
+                    onClick = { 
+                        val extension = fileUrl.substringAfterLast('.', "")
+                        val suggestedFilename = if (extension.isNotEmpty()) "$title.$extension" else title
+                        saveFileLauncher.launch(suggestedFilename)
+                    },
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0064B1)),
                     border = BorderStroke(2.dp, Color(0xFFF58025))
                 ) {

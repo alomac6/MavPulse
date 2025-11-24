@@ -1,10 +1,12 @@
 package com.example.mavpulse.network
 
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.example.mavpulse.Department
 import com.example.mavpulse.Course
+import com.example.mavpulse.Department
+import com.example.mavpulse.Favorite
 import com.example.mavpulse.Note
 import com.example.mavpulse.RoomChoice
+import com.example.mavpulse.UserNote
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -12,15 +14,18 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
 @Serializable
@@ -59,6 +64,15 @@ data class CreateRoomResponse(
     val size: Int
 )
 
+@Serializable
+data class DeleteResponse(val response: String)
+
+@Serializable
+data class FavoriteRequest(val user_id: String, val note_id: String)
+
+@Serializable
+data class FavoriteResponse(val favorite_id: String, val note_id: String, val user_id: String)
+
 interface ApiService {
     @POST("auth/signup")
     suspend fun register(@Body request: RegisterRequest): Response<RegisterResponse>
@@ -75,8 +89,26 @@ interface ApiService {
     @GET("courses/{course_name_backend}/files")
     suspend fun getNotes(@Path("course_name_backend") course_name: String): List<Note>
 
+    @GET
+    suspend fun downloadFile(@Url fileUrl: String): Response<ResponseBody>
+
     @GET("rooms/{course_name_backend}")
     suspend fun getRooms(@Path("course_name_backend") course_name: String): List<RoomChoice>
+
+    @GET("user/favorites/{user_id}")
+    suspend fun getFavoriteNotes(@Path("user_id") userId: String): List<Favorite>
+
+    @GET("user/notes/{user_id}")
+    suspend fun getUserNotes(@Path("user_id") userId: String): List<UserNote>
+
+    @DELETE("courses/{note_id}")
+    suspend fun deleteNote(@Path("note_id") noteId: String): DeleteResponse
+
+    @POST("user/favorites")
+    suspend fun favoriteNote(@Body request: FavoriteRequest): FavoriteResponse
+
+    @DELETE("user/favorites/{note_id}")
+    suspend fun unfavoriteNote(@Path("note_id") noteId: String): Response<Unit>
 
     @POST("rooms/new_room")
     suspend fun createRoom(@Body request: CreateRoomRequest): CreateRoomResponse
