@@ -55,13 +55,27 @@ data class CreateRoomRequest(
 )
 
 @Serializable
-data class CreateRoomResponse(
+data class CreateRoomMember(
+    @SerialName("encrypted_room_key") val encryptedRoomKey: String,
+    @SerialName("joined_at") val joinedAt: String,
+    val role: String,
+    @SerialName("room_id") val roomId: String,
+    @SerialName("user_id") val userId: String
+)
+
+@Serializable
+data class RoomInfo(
     @SerialName("course_id") val courseId: String,
     @SerialName("created_at") val createdAt: String,
     @SerialName("creator_id") val creatorId: String,
     val id: String,
     @SerialName("room_name") val roomName: String,
     val size: Int
+)
+@Serializable
+data class CreateRoomResponse(
+    val member: CreateRoomMember,
+    val room: RoomInfo
 )
 
 @Serializable

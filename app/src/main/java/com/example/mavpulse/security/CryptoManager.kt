@@ -12,8 +12,10 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 
+//this file handles keys
 class CryptoManager {
 
+    // Creates instance of keystore to store keys
     private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply {
         load(null)
     }
