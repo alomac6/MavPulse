@@ -1,16 +1,15 @@
 package com.example.mavpulse.viewmodels
 
 import android.app.Application
-import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
-import android.os.Environment
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mavpulse.Note
 import com.example.mavpulse.network.ApiService
+import com.example.mavpulse.network.FavoriteRequest
 import com.example.mavpulse.network.RetrofitInstance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +20,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 sealed class NotesState {
     object Loading : NotesState()
-    data class Success(val notes: List<Note>) : NotesState()
+    data class Success(val notes: List<Note>, val favoriteNoteIds: Set<String>) : NotesState()
     data class Error(val message: String) : NotesState()
 }
 
@@ -33,15 +32,44 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     private val _notesState = MutableStateFlow<NotesState>(NotesState.Loading)
     val notesState = _notesState.asStateFlow()
 
-    fun fetchNotes(course_name: String) {
+    fun fetchNotesAndFavorites(course_name: String, userId: String) {
         viewModelScope.launch {
             _notesState.value = NotesState.Loading
             try {
                 val notes = apiService.getNotes(course_name)
-                _notesState.value = NotesState.Success(notes)
+                val favorites = apiService.getFavoriteNotes(userId)
+                val favoriteNoteIds = favorites.map { it.noteId }.toSet()
+                _notesState.value = NotesState.Success(notes, favoriteNoteIds)
             } catch (e: Exception) {
-                Log.e("NotesViewModel", "Failed to fetch notes", e)
+                Log.e("NotesViewModel", "Failed to fetch notes or favorites", e)
                 _notesState.value = NotesState.Error(e.message ?: "An unknown error occurred")
+            }
+        }
+    }
+
+    fun toggleFavorite(note: Note, userId: String) {
+        viewModelScope.launch {
+            val currentState = _notesState.value
+            if (currentState is NotesState.Success) {
+                val isFavorite = currentState.favoriteNoteIds.contains(note.id)
+                val newFavorites = if (isFavorite) {
+                    currentState.favoriteNoteIds - note.id
+                } else {
+                    currentState.favoriteNoteIds + note.id
+                }
+                _notesState.value = currentState.copy(favoriteNoteIds = newFavorites)
+
+                try {
+                    if (isFavorite) {
+                        apiService.unfavoriteNote(note.id)
+                    } else {
+                        apiService.favoriteNote(FavoriteRequest(user_id = userId, note_id = note.id))
+                    }
+                } catch (e: Exception) {
+                    Log.e("NotesViewModel", "Failed to toggle favorite", e)
+                    // Revert UI change on error
+                    _notesState.value = currentState
+                }
             }
         }
     }
@@ -64,18 +92,8 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                     val titleRequest = title.toRequestBody("text/plain".toMediaTypeOrNull()) // Use the custom title
                     val user_id = userId.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                    // The server returns a list with the new note, so we take the first item
-                    val uploadedNotes = apiService.uploadNote(course_name, file, titleRequest, user_id)
-                    val newNote = uploadedNotes.firstOrNull()
-
-                    if (newNote != null) {
-                        val currentState = _notesState.value
-                        if (currentState is NotesState.Success) {
-                            _notesState.value = NotesState.Success(currentState.notes + newNote)
-                        } else {
-                            fetchNotes(course_name)
-                        }
-                    }
+                    apiService.uploadNote(course_name, file, titleRequest, user_id)
+                    fetchNotesAndFavorites(course_name, userId)
                 }
             } catch (e: Exception) {
                 Log.e("NotesViewModel", "File upload failed", e)
@@ -84,19 +102,21 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun downloadNote(fileUrl: String, title: String) {
-        try {
-            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            val request = DownloadManager.Request(Uri.parse(fileUrl))
-                .setTitle(title)
-                .setDescription("Downloading Note")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, title)
-            
-            downloadManager.enqueue(request)
-        } catch (e: Exception) {
-            Log.e("NotesViewModel", "Failed to download note", e)
-            // Optionally, update state to show a download failed message
+    fun saveFile(uri: Uri, fileUrl: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.downloadFile(fileUrl)
+                if (response.isSuccessful) {
+                    val bytes = response.body()?.bytes()
+                    if (bytes != null) {
+                        context.contentResolver.openOutputStream(uri)?.use {
+                            it.write(bytes)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("NotesViewModel", "Failed to save file", e)
+            }
         }
     }
 

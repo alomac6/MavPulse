@@ -62,11 +62,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0") // For custom client
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0") // For logging requests
 
-    // Supabase
-    implementation(platform("io.github.jan-tennert.supabase:bom:2.4.0"))
-    implementation("io.github.jan-tennert.supabase:realtime-kt")
-    implementation("io.github.jan-tennert.supabase:postgrest-kt")
-
     // Secure Storage
     implementation("androidx.security:security-crypto:1.0.0")
 

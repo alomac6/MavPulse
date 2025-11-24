@@ -25,18 +25,21 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -99,8 +103,10 @@ fun NotesPage(
         )
     }
 
-    LaunchedEffect(course_name) {
-        notesViewModel.fetchNotes(course_name)
+    LaunchedEffect(course_name, userId) {
+        if (course_name.isNotEmpty() && userId.isNotEmpty()) {
+            notesViewModel.fetchNotesAndFavorites(course_name, userId)
+        }
     }
 
     Column(
@@ -155,7 +161,12 @@ fun NotesPage(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(filteredNotes) { note ->
-                            NoteItem(note = note, onClick = { onNoteClick(note) })
+                            NoteItem(
+                                note = note, 
+                                isFavorite = state.favoriteNoteIds.contains(note.id),
+                                onFavoriteClick = { notesViewModel.toggleFavorite(note, userId) },
+                                onClick = { onNoteClick(note) }
+                            )
                         }
                     }
                 }
@@ -167,7 +178,7 @@ fun NotesPage(
                         color = MaterialTheme.colorScheme.error
                     )
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = { notesViewModel.fetchNotes(course_name) }) {
+                    Button(onClick = { notesViewModel.fetchNotesAndFavorites(course_name, userId) }) {
                         Text("Retry")
                     }
                 }
@@ -190,7 +201,12 @@ fun NotesPage(
 }
 
 @Composable
-fun NoteItem(note: Note, onClick: () -> Unit) {
+fun NoteItem(
+    note: Note, 
+    isFavorite: Boolean, 
+    onFavoriteClick: () -> Unit,
+    onClick: () -> Unit
+) {
     val isImage = note.filePath.endsWith(".png", ignoreCase = true) || 
                   note.filePath.endsWith(".jpg", ignoreCase = true) || 
                   note.filePath.endsWith(".jpeg", ignoreCase = true)
@@ -224,11 +240,21 @@ fun NoteItem(note: Note, onClick: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Text(
-                text = note.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = note.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onFavoriteClick) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                        contentDescription = "Favorite",
+                        tint = if (isFavorite) Color.Yellow else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
         }
     }
 }
@@ -248,7 +274,18 @@ fun UploadNoteDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Upload a New Note") },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Upload a New Note")
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, "Close")
+                }
+            }
+        },
         text = {
             Column {
                 OutlinedTextField(
@@ -260,7 +297,7 @@ fun UploadNoteDialog(
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = { 
                     val mimeTypes = arrayOf("application/pdf", "image/jpeg", "image/png", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                    filePickerLauncher.launch(mimeTypes) 
+                    filePickerLauncher.launch(mimeTypes)
                 }) {
                     Icon(Icons.Default.Add, contentDescription = "Attach File")
                     Spacer(Modifier.size(8.dp))
@@ -278,10 +315,6 @@ fun UploadNoteDialog(
                 Text("Upload")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        dismissButton = {}
     )
 }
