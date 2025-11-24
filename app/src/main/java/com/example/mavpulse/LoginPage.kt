@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mavpulse.viewmodels.AuthViewModel
 import com.example.mavpulse.viewmodels.AuthState
+import com.example.mavpulse.security.CryptoManager
 
 @Composable
 fun LoginPage(
@@ -53,10 +54,28 @@ fun LoginPage(
 
     LaunchedEffect(authState) {
         if (authState is AuthState.Success) {
+            val userId = authViewModel.userId.value
+            if (userId != null) {
+                val cryptoManager = CryptoManager()
+                val userKeyPair = cryptoManager.getOrCreateAsymmetricKeyPair("user_$userId")
+
+                // for debugging log the public key
+                val publicKeyString = userKeyPair.public.encoded.joinToString(",") { it.toString() }
+                println("User public key created: $publicKeyString")
+            }
+
             onLoginSuccess()
             authViewModel.resetAuthState()
         }
     }
+
+    /*
+    To actually use the keys
+
+    val userKeyPair = cryptoManager.getOrCreateAsymmetricKeyPair("user_$userId")
+    val publicKey = userKeyPair.public
+    val privateKey = userKeyPair.private
+     */
 
     Column(
         modifier = modifier

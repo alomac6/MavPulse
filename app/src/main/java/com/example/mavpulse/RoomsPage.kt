@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mavpulse.viewmodels.RoomsState
 import com.example.mavpulse.viewmodels.RoomsViewModel
+import com.example.mavpulse.security.CryptoManager
 
 @Composable
 fun RoomsPage(
